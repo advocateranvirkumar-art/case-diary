@@ -769,15 +769,36 @@ function remDD(key,idx){db[key].splice(idx,1);saveDB();closeModal();}
 /* ══════════════════ BACKUP / RESTORE ══════════════════ */
 function exportData(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='case_diary_'+todayStr+'.json';a.click();toast('Backup exported');}
 function importData(input){
-  const f=input.files[0];if(!f)return;
-  const r=new FileReader();r.onload=e=>{
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
     try{
-      const imp=JSON.parse(e.target.result);if(!imp.cases){toast('Invalid file');return;}
-      if(!confirm('Replace all data with this backup?'))return;
-      db=imp;['cases','fees','payments','holidays','customCaseTypes','customStages','courts','policeStations'].forEach(k=>{if(!Array.isArray(db[k]))db[k]=[];});
-      saveLocal();render();toast('Data imported');
-    }catch{toast('Failed to read file');}
-  };r.readAsText(f);
+      const imp=JSON.parse(e.target.result);
+      if(!imp.cases){toast('Invalid file'); return;}
+      if(!confirm('Replace all data with this backup?')) return;
+      
+      db=imp;
+      ['cases','fees','payments','holidays','customCaseTypes','customStages','courts','policeStations'].forEach(k=>{
+        if(!Array.isArray(db[k])) db[k]=[];
+      });
+
+      saveLocal(); // This saves it to your phone/browser
+      
+      // This part pushes the imported data to your Google Sheet
+      if(db.sheetUrl) {
+        syncToSheets(); 
+        toast('Data imported & synced to Sheets');
+      } else {
+        toast('Data imported locally');
+      }
+      
+      render();
+    } catch(err) {
+      toast('Failed to read file');
+      console.error(err);
+    }
+  };
+  r.readAsText(f);
 }
 
 /* ══════════════════ PDF ══════════════════ */
