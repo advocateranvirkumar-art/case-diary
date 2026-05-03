@@ -177,29 +177,52 @@ function setSS(state,msg){
    POST action=write  → saves data, returns {status:"ok"}
 ══════════════════════════════════════════════════════ */
 async function syncFromSheets(){
-  if(!db.sheetUrl||syncBusy)return;
+  if(!db.sheetUrl){toast('⚠️ No URL configured. Go to Settings first.');return;}
+  if(syncBusy)return;
   syncBusy=true;setSS('busy','Loading from Sheets…');
+  toast('🔄 Pulling data from Sheets...');
   try{
-    // GET request with action=read
     const url=db.sheetUrl+(db.sheetUrl.includes('?')?'&':'?')+'action=read&cb='+Date.now();
-    const res=await fetch(url,{redirect:'follow'});
-    if(!res.ok)throw new Error('Server returned '+res.status);
+    console.log('[SYNC] Fetching:',url);
+    const res=await fetch(url,{method:'GET',redirect:'follow',cache:'no-store'});
+    console.log('[SYNC] Response status:',res.status,'OK:',res.ok);
+    if(!res.ok)throw new Error('Server returned HTTP '+res.status);
     const text=await res.text();
-    if(!text||text.trim()==='')throw new Error('Empty response from script');
+    console.log('[SYNC] Response length:',text.length,'chars');
+    if(!text||text.trim()==='')throw new Error('Empty response — check Apps Script deployment');
+    // Check if we got HTML instead of JSON (login redirect)
+    if(text.includes('<!DOCTYPE')||text.includes('<html')){
+      throw new Error('Got HTML page (login redirect). Make sure Access = "Anyone" in deployment settings.');
+    }
     let remote;
-    try{remote=JSON.parse(text);}catch(e){throw new Error('Response is not valid JSON. Check script deployment.');}
+    try{remote=JSON.parse(text);}catch(e){
+      console.error('[SYNC] JSON parse failed. Response:',text.substring(0,500));
+      throw new Error('Invalid JSON from server. Redeploy the Apps Script.');
+    }
     if(remote.error)throw new Error(remote.error);
-    // Apply remote data — remote is master on read
+    console.log('[SYNC] Received data:',Object.keys(remote));
+    // Apply remote data
+    let changeCount=0;
     ['cases','fees','payments','holidays','courts','policeStations','customCaseTypes','customStages'].forEach(k=>{
-      if(Array.isArray(remote[k]))db[k]=remote[k];
+      if(Array.isArray(remote[k])){
+        const before=db[k].length;
+        db[k]=remote[k];
+        changeCount+=Math.abs(db[k].length-before);
+      }
     });
     db.lastSync=new Date().toISOString();
     saveLocal();setSS('ok','Synced '+new Date().toLocaleTimeString('en-IN'));
-    render();toast('✅ Data loaded from Google Sheets');
+    render();
+    toast(`✅ Loaded ${db.cases.length} cases from Sheets`);
+    console.log('[SYNC] Success. Cases:',db.cases.length,'Fees:',db.fees.length);
   }catch(err){
     setSS('err','Pull failed');
-    toast('⚠️ Pull error: '+err.message);
-    console.error('syncFromSheets:',err);
+    toast('❌ Sync failed: '+err.message);
+    console.error('[SYNC ERROR]',err.message,err);
+    // Show detailed error modal on mobile
+    if(window.confirm('Sync failed: '+err.message+'\n\nShow debug info?')){
+      alert('Error: '+err.message+'\n\nURL: '+db.sheetUrl+'\n\nCheck console (F12) for details, or try:\n1. Redeploy Apps Script\n2. Make sure Access = "Anyone"\n3. Check internet connection');
+    }
   }finally{syncBusy=false;}
 }
 
@@ -214,16 +237,22 @@ async function syncToSheets(){
       policeStations:db.policeStations,
       customCaseTypes:db.customCaseTypes,customStages:db.customStages
     });
-    const res=await fetch(db.sheetUrl,{method:'POST',body,redirect:'follow'});
+    console.log('[SYNC] Pushing to Sheets. Payload size:',body.length,'chars');
+    const res=await fetch(db.sheetUrl,{method:'POST',body,redirect:'follow',cache:'no-store'});
+    console.log('[SYNC] Push response:',res.status,res.ok);
     const text=await res.text();
     let result;
-    try{result=JSON.parse(text);}catch(e){throw new Error('Response is not valid JSON');}
-    if(result.status!=='ok')throw new Error(result.error||'Script returned error');
+    try{result=JSON.parse(text);}catch(e){
+      console.error('[SYNC] Push response not JSON:',text.substring(0,500));
+      throw new Error('Server returned invalid JSON. Redeploy the Apps Script.');
+    }
+    if(result.status!=='ok')throw new Error(result.error||'Script returned error status');
     db.lastSync=new Date().toISOString();
     saveLocal();setSS('ok','Saved '+new Date().toLocaleTimeString('en-IN'));
+    console.log('[SYNC] Push successful');
   }catch(err){
-    saveLocal();setSS('err','Save failed – kept locally');
-    console.error('syncToSheets:',err);
+    saveLocal();setSS('err','Save failed — kept locally');
+    console.error('[SYNC] Push error:',err.message,err);
   }
 }
 
@@ -602,6 +631,7 @@ function renderSettings(el){
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="saveSheetUrl()">Save &amp; Connect</button>
         <button class="btn" onclick="syncFromSheets()">🔄 Pull from Sheets now</button>
+        <button class="btn btn-sm" onclick="testConnection()">🔍 Test Connection</button>
         <button class="btn btn-sm b-blue" onclick="showScript()">📋 Setup Script &amp; Guide</button>
       </div>
     </div>
@@ -769,36 +799,15 @@ function remDD(key,idx){db[key].splice(idx,1);saveDB();closeModal();}
 /* ══════════════════ BACKUP / RESTORE ══════════════════ */
 function exportData(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='case_diary_'+todayStr+'.json';a.click();toast('Backup exported');}
 function importData(input){
-  const f=input.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=e=>{
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();r.onload=e=>{
     try{
-      const imp=JSON.parse(e.target.result);
-      if(!imp.cases){toast('Invalid file'); return;}
-      if(!confirm('Replace all data with this backup?')) return;
-      
-      db=imp;
-      ['cases','fees','payments','holidays','customCaseTypes','customStages','courts','policeStations'].forEach(k=>{
-        if(!Array.isArray(db[k])) db[k]=[];
-      });
-
-      saveLocal(); // This saves it to your phone/browser
-      
-      // This part pushes the imported data to your Google Sheet
-      if(db.sheetUrl) {
-        syncToSheets(); 
-        toast('Data imported & synced to Sheets');
-      } else {
-        toast('Data imported locally');
-      }
-      
-      render();
-    } catch(err) {
-      toast('Failed to read file');
-      console.error(err);
-    }
-  };
-  r.readAsText(f);
+      const imp=JSON.parse(e.target.result);if(!imp.cases){toast('Invalid file');return;}
+      if(!confirm('Replace all data with this backup?'))return;
+      db=imp;['cases','fees','payments','holidays','customCaseTypes','customStages','courts','policeStations'].forEach(k=>{if(!Array.isArray(db[k]))db[k]=[];});
+      saveLocal();render();toast('Data imported');
+    }catch{toast('Failed to read file');}
+  };r.readAsText(f);
 }
 
 /* ══════════════════ PDF ══════════════════ */
@@ -828,6 +837,53 @@ function printPDF(){
   doc.setDrawColor(200);doc.line(15,y+2,195,y+2);doc.setFontSize(8);doc.setTextColor(160);
   doc.text("Advocate's Case Diary | "+fmt(todayStr),105,y+8,{align:'center'});
   doc.save('CauseList_'+viewDate+'.pdf');toast('PDF downloaded');
+}
+
+async function testConnection(){
+  if(!db.sheetUrl){alert('No URL saved yet. Paste your Apps Script URL and tap Save & Connect first.');return;}
+  const url=db.sheetUrl+(db.sheetUrl.includes('?')?'&':'?')+'action=read&test=1';
+  let log='🔍 SYNC TEST\n\n';
+  log+='URL: '+db.sheetUrl+'\n\n';
+  log+='Step 1: Sending GET request...\n';
+  try{
+    const res=await fetch(url,{method:'GET',redirect:'follow',cache:'no-store'});
+    log+='✓ Got response\n';
+    log+='  Status: '+res.status+' '+(res.ok?'OK':'ERROR')+'\n';
+    log+='  Content-Type: '+(res.headers.get('content-type')||'(none)')+'\n';
+    log+='  Final URL: '+res.url+'\n\n';
+    const text=await res.text();
+    log+='Step 2: Response body\n';
+    log+='  Length: '+text.length+' chars\n';
+    log+='  Preview: '+text.substring(0,200)+'...\n\n';
+    if(text.includes('<!DOCTYPE')||text.includes('<html')){
+      log+='❌ PROBLEM: Got HTML (login page)\n';
+      log+='FIX: Redeploy → Access = "Anyone" (NOT "Anyone with Google Account")\n';
+    }else{
+      try{
+        const data=JSON.parse(text);
+        log+='✅ Valid JSON received!\n';
+        log+='  Keys: '+Object.keys(data).join(', ')+'\n';
+        log+='  Cases: '+(data.cases?data.cases.length:0)+'\n';
+        log+='  Fees: '+(data.fees?data.fees.length:0)+'\n\n';
+        log+='✅ CONNECTION OK — Tap "Pull from Sheets now" to load data';
+      }catch(e){
+        log+='❌ PROBLEM: Response is not valid JSON\n';
+        log+='  Parse error: '+e.message+'\n';
+        log+='FIX: Make sure you pasted the EXACT Apps Script and redeployed\n';
+      }
+    }
+  }catch(e){
+    log+='❌ REQUEST FAILED\n';
+    log+='  Error: '+e.message+'\n\n';
+    log+='POSSIBLE CAUSES:\n';
+    log+='1. Wrong URL (check for typos)\n';
+    log+='2. Internet connection down\n';
+    log+='3. Apps Script not deployed as Web App\n';
+    log+='4. Access not set to "Anyone"\n\n';
+    log+='Try opening this URL in your browser:\n'+url;
+  }
+  alert(log);
+  console.log(log);
 }
 
 /* ══════════════════ MODAL ══════════════════ */
