@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advocate's Case Diary</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --accent:#185FA5;--accent-light:#E6F1FB;--accent-dark:#0C447C;
+  --red:#A32D2D;--red-bg:#FCEBEB;
+  --green:#3B6D11;--green-bg:#EAF3DE;
+  --amber:#854F0B;--amber-bg:#FAEEDA;
+  --gray:#5F5E5A;--gray-bg:#F1EFE8;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f4f6f9;color:#1a1a1a;font-size:15px;min-height:100vh}
+.shell{display:flex;min-height:100vh}
+.sidebar{width:220px;flex-shrink:0;background:#fff;border-right:.5px solid #e0e0e0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-brand{padding:22px 20px 16px;border-bottom:.5px solid #e0e0e0}
+.sidebar-brand h1{font-size:16px;font-weight:600;color:var(--accent)}
+.sidebar-brand p{font-size:11px;color:#888;margin-top:2px}
+.sidebar-nav{padding:12px 10px;flex:1}
+.s-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:none;background:none;border-radius:8px;cursor:pointer;font-size:14px;color:#444;text-align:left;transition:background .12s,color .12s;margin-bottom:2px}
+.s-btn:hover{background:#f0f4f8;color:var(--accent)}
+.s-btn.active{background:var(--accent-light);color:var(--accent);font-weight:500}
+.s-btn .ico{font-size:18px;width:24px;text-align:center}
+.sidebar-footer{padding:14px 16px;border-top:.5px solid #e0e0e0;font-size:11px;color:#aaa;line-height:1.7}
+.sync-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ccc;margin-right:4px;vertical-align:middle}
+.sync-dot.ok{background:#4CAF50}.sync-dot.err{background:#E24B4A}
+.sync-dot.busy{background:#EF9F27;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{background:#fff;border-bottom:.5px solid #e0e0e0;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar h2{font-size:18px;font-weight:500}
+.date-chip{font-size:12px;color:#888;background:#f4f6f9;padding:4px 10px;border-radius:20px}
+.page{padding:24px;flex:1}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:.5px solid #e0e0e0;z-index:20}
+.bn-inner{display:flex}
+.b-btn{flex:1;padding:9px 4px 7px;border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:#888;transition:color .12s}
+.b-btn .ico{font-size:20px}
+.b-btn.active{color:var(--accent)}
+@media(max-width:700px){
+  .sidebar{display:none}.bottom-nav{display:block}
+  .page{padding:14px 12px 80px}.topbar{padding:12px 14px}.topbar h2{font-size:16px}
+}
+.card{background:#fff;border:.5px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:#f4f6f9;border-radius:8px;padding:12px 14px}
+.stat-lbl{font-size:12px;color:#666}.stat-val{font-size:24px;font-weight:500;margin-top:2px}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;font-weight:500;white-space:nowrap}
+.b-blue{background:var(--accent-light);color:var(--accent-dark)}.b-red{background:var(--red-bg);color:var(--red)}
+.b-green{background:var(--green-bg);color:var(--green)}.b-amber{background:var(--amber-bg);color:var(--amber)}.b-gray{background:var(--gray-bg);color:var(--gray)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:8px;border:.5px solid #ccc;background:none;cursor:pointer;font-size:13px;color:#1a1a1a;transition:background .12s;white-space:nowrap}
+.btn:hover{background:#f0f4f8}.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn-primary:hover{background:var(--accent-dark)}
+.btn-sm{padding:5px 10px;font-size:12px}.btn-danger{background:var(--red-bg);color:var(--red);border-color:#f7c1c1}
+label{display:block;font-size:13px;color:#555;margin-bottom:4px;margin-top:12px}
+input[type=text],input[type=tel],input[type=date],input[type=number],select,textarea{width:100%;padding:9px 12px;border:.5px solid #ccc;border-radius:8px;background:#fff;color:#1a1a1a;font-size:14px;font-family:inherit}
+textarea{min-height:72px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px #b5d4f460}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:500px){.form-row{grid-template-columns:1fr}}
+.sec-title{font-size:12px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;margin-top:4px}
+.empty{text-align:center;padding:40px 20px;color:#aaa}.empty .ico{font-size:36px;margin-bottom:10px}
+.tab-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tab{padding:6px 14px;border-radius:20px;border:.5px solid #ccc;font-size:13px;cursor:pointer;background:none;color:#666}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.date-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.date-nav button{background:none;border:.5px solid #ddd;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:16px;color:#333}
+.date-nav span{font-size:15px;font-weight:500}
+.cal-wrap{background:#fff;border:.5px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;overflow-x:auto}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;min-width:280px}
+.cal-dh{text-align:center;font-size:11px;color:#888;padding:4px 0;font-weight:500}
+.cal-cell{min-height:52px;border-radius:6px;padding:4px 3px;cursor:pointer;border:.5px solid transparent}
+.cal-cell:hover{background:#f4f6f9}.cal-cell .cd{font-size:12px;font-weight:500;text-align:center}
+.cal-cell .cc{font-size:10px;margin-top:3px;display:block;border-radius:4px;text-align:center;padding:1px}
+.cal-today{background:var(--accent-light);border-color:var(--accent)!important}.cal-holiday{background:var(--red-bg)}
+.cal-sunday{background:#f8f8f8;opacity:.7}.cal-other{opacity:.3}
+.cc-hi{background:var(--red-bg);color:var(--red)}.cc-md{background:var(--amber-bg);color:var(--amber)}.cc-lo{background:var(--green-bg);color:var(--green)}
+.pay-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:.5px solid #f0f0f0;font-size:13px}
+.pay-row:last-child{border-bottom:none}
+.h-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid #f0f0f0}
+.h-item:last-child{border-bottom:none}
+.upcoming{padding:10px 12px;border-radius:10px;margin-bottom:8px;border-left:3px solid var(--accent);background:#f9fafb}
+.upcoming.urgent{border-left-color:#E24B4A;background:var(--red-bg)}.upcoming.soon{border-left-color:#EF9F27;background:var(--amber-bg)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+@media(max-width:700px){.modal-bg{align-items:flex-end;padding:0}}
+.modal{background:#fff;border-radius:16px;padding:22px 18px 26px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto}
+@media(max-width:700px){.modal{border-radius:16px 16px 0 0;max-height:88vh}}
+.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-hd h3{font-size:16px;font-weight:500}.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#888}
+.s-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:.5px solid #f0f0f0}
+.s-row:last-child{border-bottom:none}
+.tbl-wrap{overflow-x:auto}
+table.data{width:100%;border-collapse:collapse;font-size:13px}
+table.data th{text-align:left;padding:8px 10px;background:#f4f6f9;font-weight:500;font-size:12px;color:#555;border-bottom:.5px solid #e0e0e0;white-space:nowrap}
+table.data td{padding:9px 10px;border-bottom:.5px solid #f0f0f0;vertical-align:middle}
+table.data tr:hover td{background:#fafbfc}
+code{background:#f4f6f9;padding:1px 6px;border-radius:4px;font-size:12px}
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2a2a2a;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+@media(min-width:701px){#toast{bottom:20px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <h1>⚖️ Case Diary</h1>
+      <p>Advocate's Digital Register</p>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="s-btn active" id="snav-today"    onclick="showScreen('today')"><span class="ico">📋</span> Today's List</button>
+      <button class="s-btn"        id="snav-cases"    onclick="showScreen('cases')"><span class="ico">📁</span> Case Register</button>
+      <button class="s-btn"        id="snav-calendar" onclick="showScreen('calendar')"><span class="ico">📅</span> Calendar</button>
+      <button class="s-btn"        id="snav-fees"     onclick="showScreen('fees')"><span class="ico">💰</span> Fee Management</button>
+      <button class="s-btn"        id="snav-settings" onclick="showScreen('settings')"><span class="ico">⚙️</span> Settings</button>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="sync-dot" id="syncDot"></span><span id="syncStatus">Not connected</span><br>
+      Case Diary v2.0
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <h2 id="screenTitle">Today's List</h2>
+      <span class="date-chip" id="todayChip"></span>
+    </div>
+    <div class="page" id="mainContent"></div>
+  </div>
+</div>
+<nav class="bottom-nav">
+  <div class="bn-inner">
+    <button class="b-btn active" id="bnav-today"    onclick="showScreen('today')"><span class="ico">📋</span>Today</button>
+    <button class="b-btn"        id="bnav-cases"    onclick="showScreen('cases')"><span class="ico">📁</span>Cases</button>
+    <button class="b-btn"        id="bnav-calendar" onclick="showScreen('calendar')"><span class="ico">📅</span>Calendar</button>
+    <button class="b-btn"        id="bnav-fees"     onclick="showScreen('fees')"><span class="ico">💰</span>Fees</button>
+    <button class="b-btn"        id="bnav-settings" onclick="showScreen('settings')"><span class="ico">⚙️</span>More</button>
+  </div>
+</nav>
+<div id="toast"></div>
+
+<script>
+/* ── CONSTANTS ── */
+const CASE_TYPES=['Sessions Trial','Bail Application','Criminal Revision','Criminal Appeal','Anticipatory Bail','138 NI Act','Other'];
+const STAGES=['Framing of Charge','Arguments','Evidence','Bail Hearing','Judgement','Other'];
+const PAY_MODES=['Cash','UPI','Cheque'];
+
+/* ── STATE ── */
+let db={cases:[],fees:[],payments:[],holidays:[],customCaseTypes:[],customStages:[],courts:[],policeStations:[],sheetUrl:'',lastSync:null};
+let currentScreen='today',editingCase=null,editingFeeCase=null;
+let calMonth=new Date().getMonth(),calYear=new Date().getFullYear();
+const todayStr=new Date().toISOString().split('T')[0];
+let viewDate=todayStr,caseFilter='All',caseSearch='',syncBusy=false;
+
+/* ── LOCAL STORAGE ── */
+function loadLocal(){
+  try{const r=localStorage.getItem('caseDB3');if(r)db=Object.assign(db,JSON.parse(r));}catch(e){}
+  ['cases','fees','payments','holidays','customCaseTypes','customStages','courts','policeStations'].forEach(k=>{if(!Array.isArray(db[k]))db[k]=[];});
+  if(!db.sheetUrl)db.sheetUrl='';
+}
+function saveLocal(){localStorage.setItem('caseDB3',JSON.stringify(db));}
+
+/* ── SYNC STATUS ── */
+function setSS(state,msg){
+  const d=document.getElementById('syncDot'),t=document.getElementById('syncStatus');
+  if(!d)return;
+  d.className='sync-dot'+(state==='ok'?' ok':state==='err'?' err':state==='busy'?' busy':'');
+  if(t)t.textContent=msg;
+}
+
+/* ══════════════════════════════════════════════════════
+   TWO-WAY GOOGLE SHEETS SYNC
+   
+   The Apps Script web app handles two actions:
+   GET  ?action=read  → returns all data as JSON object
+   POST action=write  → saves data, returns {status:"ok"}
+══════════════════════════════════════════════════════ */
+async function syncFromSheets(){
+  if(!db.sheetUrl||syncBusy)return;
+  syncBusy=true;setSS('busy','Loading from Sheets…');
+  try{
+    // GET request with action=read
+    const url=db.sheetUrl+(db.sheetUrl.includes('?')?'&':'?')+'action=read&cb='+Date.now();
+    const res=await fetch(url,{redirect:'follow'});
+    if(!res.ok)throw new Error('Server returned '+res.status);
+    const text=await res.text();
+    if(!text||text.trim()==='')throw new Error('Empty response from script');
+    let remote;
+    try{remote=JSON.parse(text);}catch(e){throw new Error('Response is not valid JSON. Check script deployment.');}
+    if(remote.error)throw new Error(remote.error);
+    // Apply remote data — remote is master on read
+    ['cases','fees','payments','holidays','courts','policeStations','customCaseTypes','customStages'].forEach(k=>{
+      if(Array.isArray(remote[k]))db[k]=remote[k];
+    });
+    db.lastSync=new Date().toISOString();
+    saveLocal();setSS('ok','Synced '+new Date().toLocaleTimeString('en-IN'));
+    render();toast('✅ Data loaded from Google Sheets');
+  }catch(err){
+    setSS('err','Pull failed');
+    toast('⚠️ Pull error: '+err.message);
+    console.error('syncFromSheets:',err);
+  }finally{syncBusy=false;}
+}
+
+async function syncToSheets(){
+  if(!db.sheetUrl)return;
+  setSS('busy','Saving…');
+  try{
+    const body=JSON.stringify({
+      action:'write',
+      cases:db.cases,fees:db.fees,payments:db.payments,
+      holidays:db.holidays,courts:db.courts,
+      policeStations:db.policeStations,
+      customCaseTypes:db.customCaseTypes,customStages:db.customStages
+    });
+    const res=await fetch(db.sheetUrl,{method:'POST',body,redirect:'follow'});
+    const text=await res.text();
+    let result;
+    try{result=JSON.parse(text);}catch(e){throw new Error('Response is not valid JSON');}
+    if(result.status!=='ok')throw new Error(result.error||'Script returned error');
+    db.lastSync=new Date().toISOString();
+    saveLocal();setSS('ok','Saved '+new Date().toLocaleTimeString('en-IN'));
+  }catch(err){
+    saveLocal();setSS('err','Save failed – kept locally');
+    console.error('syncToSheets:',err);
+  }
+}
+
+function saveDB(){saveLocal();syncToSheets();}
+
+/* ── HELPERS ── */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5);}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
+function fmt(d){if(!d)return'—';return new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}
+function daysAway(d){if(!d)return 999;return Math.round((new Date(d)-new Date(todayStr))/86400000);}
+function allTypes(){return[...CASE_TYPES,...db.customCaseTypes];}
+function allStages(){return[...STAGES,...db.customStages];}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+
+/* ── NAVIGATION ── */
+function showScreen(n){
+  currentScreen=n;
+  const T={today:"Today's List",cases:'Case Register',calendar:'Master Calendar',fees:'Fee Management',settings:'Settings'};
+  document.getElementById('screenTitle').textContent=T[n]||n;
+  document.querySelectorAll('.s-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('snav-'+n)?.classList.add('active');
+  document.querySelectorAll('.b-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('bnav-'+n)?.classList.add('active');
+  render();
+}
+function render(){
+  const el=document.getElementById('mainContent');
+  document.getElementById('todayChip').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  if(currentScreen==='today')renderToday(el);
+  else if(currentScreen==='cases')renderCases(el);
+  else if(currentScreen==='calendar')renderCalendar(el);
+  else if(currentScreen==='fees')renderFees(el);
+  else if(currentScreen==='settings')renderSettings(el);
+}
+
+/* ══════════════════ TODAY'S LIST ══════════════════ */
+function renderToday(el){
+  const dc=db.cases.filter(c=>c.status!=='Closed'&&c.nextDate===viewDate);
+  const up=db.cases.filter(c=>c.status!=='Closed'&&c.nextDate>todayStr).sort((a,b)=>a.nextDate.localeCompare(b.nextDate)).slice(0,6);
+  let h=`<div class="date-nav">
+    <button onclick="chgDate(-1)">&#8249;</button>
+    <span>${viewDate===todayStr?'Today — ':''}${fmt(viewDate)}</span>
+    <button onclick="chgDate(1)">&#8250;</button>
+  </div>`;
+  if(viewDate===todayStr)h+=`<div class="stats-grid">
+    <div class="stat"><div class="stat-lbl">Hearings today</div><div class="stat-val">${dc.length}</div></div>
+    <div class="stat"><div class="stat-lbl">Active cases</div><div class="stat-val">${db.cases.filter(c=>c.status!=='Closed').length}</div></div>
+    <div class="stat"><div class="stat-lbl">Total cases</div><div class="stat-val">${db.cases.length}</div></div>
+  </div>`;
+  h+=`<div class="sec-title">Cases on ${fmt(viewDate)}</div>`;
+  if(dc.length===0){h+=`<div class="empty"><div class="ico">📭</div>No cases scheduled for this date</div>`;}
+  else{
+    h+=`<div class="tbl-wrap"><table class="data"><thead><tr>
+      <th>#</th><th>Client</th><th>Case No./Year</th><th>Police Station</th><th>FIR No.</th>
+      <th>Case Type</th><th>Court</th><th>Stage</th><th>Prev. Date</th><th>Opposite Party</th><th>Actions</th>
+    </tr></thead><tbody>`;
+    dc.forEach((c,i)=>{h+=`<tr>
+      <td>${i+1}</td>
+      <td><b>${esc(c.clientName)}</b><br><span style="color:#888;font-size:11px">${esc(c.phone||'')}</span></td>
+      <td>${esc(c.caseNo||'—')}${c.caseYear?' / '+esc(c.caseYear):''}</td>
+      <td>${esc(c.policeStation||'—')}</td>
+      <td>${esc(c.firNo||'—')}</td>
+      <td><span class="badge b-blue">${esc(c.caseType)}</span></td>
+      <td>${esc(c.court||'—')}</td>
+      <td>${esc(c.stage)}</td>
+      <td>${c.prevDate?fmt(c.prevDate):'—'}</td>
+      <td>${esc(c.oppParty||'—')}</td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-sm b-green" onclick="adjournCase('${c.id}')">📅 Adjourn</button>
+        <button class="btn btn-sm b-blue"  onclick="copyWA('${c.id}')">📲 WA</button>
+        <button class="btn btn-sm"         onclick="openCaseForm('${c.id}')">Edit</button>
+      </div></td>
+    </tr>`;});
+    h+=`</tbody></table></div>`;
+  }
+  if(viewDate===todayStr&&up.length>0){
+    h+=`<div class="sec-title" style="margin-top:20px">Upcoming hearings</div>`;
+    up.forEach(c=>{const d=daysAway(c.nextDate);const cls=d<=1?'urgent':d<=7?'soon':'';
+      h+=`<div class="upcoming ${cls}"><div style="font-weight:500">${esc(c.clientName)} <span style="font-weight:400;font-size:12px;color:#666">— ${esc(c.caseType)}</span></div>
+        <div style="font-size:12px;color:#555;margin-top:2px">${fmt(c.nextDate)} &nbsp;|&nbsp; ${esc(c.court||'—')}</div></div>`;
+    });
+  }
+  h+=`<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="printPDF()">🖨️ Print Cause List (PDF)</button>
+    ${db.sheetUrl?`<button class="btn" onclick="syncFromSheets()">🔄 Refresh from Sheets</button>`:''}
+  </div>`;
+  el.innerHTML=h;
+}
+function chgDate(d){const dt=new Date(viewDate+'T00:00:00');dt.setDate(dt.getDate()+d);viewDate=dt.toISOString().split('T')[0];render();}
+
+function adjournCase(id){
+  const c=db.cases.find(x=>x.id===id);if(!c)return;
+  showModal('Adjourn — '+esc(c.clientName),`
+    <p style="font-size:13px;color:#666;margin-bottom:12px">Current date: <b>${fmt(c.nextDate)}</b></p>
+    <label>New Hearing Date *</label><input type="date" id="adj_d" value="${c.nextDate}">
+    <label>Note (optional)</label><input type="text" id="adj_n" placeholder="e.g. On application of counsel">
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-primary" style="flex:1" onclick="doAdjourn('${id}')">Save</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+function doAdjourn(id){
+  const c=db.cases.find(x=>x.id===id);if(!c)return;
+  const nd=document.getElementById('adj_d').value;
+  if(!nd){toast('Enter a date');return;}
+  if(!c.hearingHistory)c.hearingHistory=[];
+  c.hearingHistory.push({date:c.nextDate,note:document.getElementById('adj_n').value.trim()||'Adjourned'});
+  c.prevDate=c.nextDate;c.nextDate=nd;
+  saveDB();closeModal();toast('Next date → '+fmt(nd));render();
+}
+function copyWA(id){
+  const c=db.cases.find(x=>x.id===id);if(!c)return;
+  const m=`Dear ${c.clientName}, your hearing in ${c.caseType} (FIR: ${c.firNo||'N/A'}) at ${c.court} is scheduled on ${fmt(c.nextDate)}. Please be present on time.\n— Adv. [Your Name], ${fmt(todayStr)}`;
+  navigator.clipboard.writeText(m).then(()=>toast('WhatsApp message copied!')).catch(()=>{prompt('Copy this:',m);});
+}
+
+/* ══════════════════ CASE REGISTER ══════════════════ */
+function renderCases(el){
+  const filtered=db.cases.filter(c=>{
+    const ms=caseFilter==='Closed'?c.status==='Closed':caseFilter==='Active'?c.status!=='Closed':true;
+    const mq=!caseSearch||[c.clientName,c.firNo,c.oppParty,c.court,c.caseNo,c.policeStation].some(f=>f&&f.toLowerCase().includes(caseSearch.toLowerCase()));
+    return ms&&mq;
+  });
+  let h=`<div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="openCaseForm()">+ Add New Case</button>
+    <input type="text" style="flex:1;min-width:180px;max-width:320px" placeholder="Search name, FIR, case no…" value="${esc(caseSearch)}" oninput="caseSearch=this.value;renderCases(document.getElementById('mainContent'))">
+  </div>
+  <div class="tab-row">
+    <button class="tab ${caseFilter==='All'?'active':''}"    onclick="caseFilter='All';renderCases(document.getElementById('mainContent'))">All (${db.cases.length})</button>
+    <button class="tab ${caseFilter==='Active'?'active':''}" onclick="caseFilter='Active';renderCases(document.getElementById('mainContent'))">Active (${db.cases.filter(c=>c.status!=='Closed').length})</button>
+    <button class="tab ${caseFilter==='Closed'?'active':''}" onclick="caseFilter='Closed';renderCases(document.getElementById('mainContent'))">Closed (${db.cases.filter(c=>c.status==='Closed').length})</button>
+  </div>`;
+  if(filtered.length===0)h+=`<div class="empty"><div class="ico">📁</div>No cases found</div>`;
+  else{
+    h+=`<div class="tbl-wrap"><table class="data"><thead><tr>
+      <th>Client</th><th>Case No./Year</th><th>Police Station</th><th>FIR No.</th>
+      <th>Case Type</th><th>Court</th><th>Stage</th><th>Prev. Date</th><th>Next Date</th><th>Status</th><th>Actions</th>
+    </tr></thead><tbody>`;
+    filtered.forEach(c=>{
+      const dw=daysAway(c.nextDate),dc=dw<=1?'b-red':dw<=7?'b-amber':'b-green',sc=c.status==='Closed'?'b-gray':'b-blue';
+      h+=`<tr>
+        <td><b>${esc(c.clientName)}</b><br><span style="font-size:11px;color:#888">${esc(c.phone||'')}</span></td>
+        <td>${esc(c.caseNo||'—')}${c.caseYear?' / '+esc(c.caseYear):''}</td>
+        <td>${esc(c.policeStation||'—')}</td><td>${esc(c.firNo||'—')}</td>
+        <td><span class="badge b-blue">${esc(c.caseType)}</span></td>
+        <td>${esc(c.court||'—')}</td><td>${esc(c.stage)}</td>
+        <td>${c.prevDate?fmt(c.prevDate):'—'}</td>
+        <td><span class="badge ${dc}">${c.nextDate?fmt(c.nextDate):'Not set'}</span></td>
+        <td><span class="badge ${sc}">${c.status||'Active'}</span></td>
+        <td><div style="display:flex;gap:4px">
+          <button class="btn btn-sm" onclick="openCaseForm('${c.id}')">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="delCase('${c.id}')">Del</button>
+        </div></td>
+      </tr>`;
+    });
+    h+=`</tbody></table></div>`;
+  }
+  el.innerHTML=h;
+}
+function delCase(id){if(!confirm('Delete this case? Cannot be undone.'))return;db.cases=db.cases.filter(c=>c.id!==id);saveDB();render();toast('Case deleted');}
+
+function openCaseForm(id){
+  const c=id?db.cases.find(x=>x.id===id):null;editingCase=c||null;
+  const types=allTypes().map(t=>`<option${c&&c.caseType===t?' selected':''}>${esc(t)}</option>`).join('');
+  const stages=allStages().map(s=>`<option${c&&c.stage===s?' selected':''}>${esc(s)}</option>`).join('');
+  const courts=['-- Select Court --',...db.courts].map(ct=>`<option${c&&c.court===ct?' selected':''}>${esc(ct)}</option>`).join('');
+  const stations=['-- Select Police Station --',...db.policeStations].map(ps=>`<option${c&&c.policeStation===ps?' selected':''}>${esc(ps)}</option>`).join('');
+  showModal(`${c?'Edit':'Add New'} Case`,`
+    <div class="form-row">
+      <div><label>Client Name *</label><input type="text" id="fc_name" value="${c?esc(c.clientName):''}" placeholder="e.g. Ramesh Kumar"></div>
+      <div><label>Client Phone</label><input type="tel" id="fc_phone" value="${c?esc(c.phone||''):''}" placeholder="10-digit number"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Case Number</label><input type="text" id="fc_no" value="${c?esc(c.caseNo||''):''}" placeholder="e.g. SC/123"></div>
+      <div><label>Case Year</label><input type="text" id="fc_yr" value="${c?esc(c.caseYear||''):''}" placeholder="e.g. 2024"></div>
+    </div>
+    <div class="form-row">
+      <div>
+        <label>Police Station</label><select id="fc_ps">${stations}</select>
+        <div style="font-size:11px;color:#aaa;margin-top:2px">Add in Settings → Dropdowns</div>
+      </div>
+      <div><label>FIR Number</label><input type="text" id="fc_fir" value="${c?esc(c.firNo||''):''}" placeholder="FIR No."></div>
+    </div>
+    <div class="form-row">
+      <div><label>Case Type</label><select id="fc_type">${types}</select></div>
+      <div><label>Stage of Hearing</label><select id="fc_stage">${stages}</select></div>
+    </div>
+    <label>Court Name</label>
+    <select id="fc_court">${courts}</select>
+    <div style="font-size:11px;color:#aaa;margin-top:2px">Add courts in Settings → Dropdowns</div>
+    <label>Opposite Party</label>
+    <input type="text" id="fc_opp" value="${c?esc(c.oppParty||''):''}" placeholder="Name of opposite party">
+    <div class="form-row">
+      <div><label>Previous Hearing Date <span style="color:#bbb;font-weight:400">(optional)</span></label><input type="date" id="fc_prev" value="${c&&c.prevDate?c.prevDate:''}"></div>
+      <div><label>Next Hearing Date</label><input type="date" id="fc_next" value="${c?c.nextDate:''}"></div>
+    </div>
+    <label>Status</label>
+    <select id="fc_status"><option${!c||c.status!=='Closed'?' selected':''}>Active</option><option${c&&c.status==='Closed'?' selected':''}>Closed</option></select>
+    <label>Notes (optional)</label>
+    <textarea id="fc_notes" placeholder="Additional notes…">${c?esc(c.notes||''):''}</textarea>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveCase()">Save Case</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+
+function saveCase(){
+  const name=document.getElementById('fc_name').value.trim();
+  if(!name){toast('Client name is required');return;}
+  const c=editingCase||{id:uid(),hearingHistory:[]};
+  c.clientName=name;
+  c.phone=document.getElementById('fc_phone').value.trim();
+  c.caseNo=document.getElementById('fc_no').value.trim();
+  c.caseYear=document.getElementById('fc_yr').value.trim();
+  const ps=document.getElementById('fc_ps').value;c.policeStation=ps.startsWith('--')?'':ps;
+  c.firNo=document.getElementById('fc_fir').value.trim();
+  c.caseType=document.getElementById('fc_type').value;
+  c.stage=document.getElementById('fc_stage').value;
+  const ct=document.getElementById('fc_court').value;c.court=ct.startsWith('--')?'':ct;
+  c.oppParty=document.getElementById('fc_opp').value.trim();
+  c.prevDate=document.getElementById('fc_prev').value||'';
+  c.nextDate=document.getElementById('fc_next').value;
+  c.status=document.getElementById('fc_status').value;
+  c.notes=document.getElementById('fc_notes').value.trim();
+  if(!editingCase)db.cases.push(c);
+  saveDB();closeModal();render();toast(editingCase?'Case updated':'Case added');
+}
+
+/* ══════════════════ CALENDAR ══════════════════ */
+function renderCalendar(el){
+  const first=new Date(calYear,calMonth,1),last=new Date(calYear,calMonth+1,0);
+  const ml=first.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  const ms=`${calYear}-${String(calMonth+1).padStart(2,'0')}`;
+  const mc=db.cases.filter(c=>c.nextDate&&c.nextDate.startsWith(ms));
+  const wd=workDays(calYear,calMonth);
+  const freq={};mc.forEach(c=>{freq[c.nextDate]=(freq[c.nextDate]||0)+1;});
+  const busy=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0];
+  let h=`<div class="stats-grid">
+    <div class="stat"><div class="stat-lbl">Hearings this month</div><div class="stat-val">${mc.length}</div></div>
+    <div class="stat"><div class="stat-lbl">Working days</div><div class="stat-val">${wd}</div></div>
+    <div class="stat"><div class="stat-lbl">Busiest day</div><div class="stat-val" style="font-size:16px">${busy?fmt(busy[0])+' ('+busy[1]+')':'—'}</div></div>
+  </div>
+  <div class="date-nav">
+    <button onclick="calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar(document.getElementById('mainContent'))">&#8249;</button>
+    <span>${ml}</span>
+    <button onclick="calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar(document.getElementById('mainContent'))">&#8250;</button>
+  </div>
+  <div class="cal-wrap"><div class="cal-grid">`;
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{h+=`<div class="cal-dh">${d}</div>`;});
+  const sd=first.getDay();
+  for(let i=0;i<sd;i++){const pd=new Date(calYear,calMonth,-sd+i+1);h+=`<div class="cal-cell cal-other"><div class="cd" style="color:#bbb">${pd.getDate()}</div></div>`;}
+  for(let d=1;d<=last.getDate();d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow=new Date(calYear,calMonth,d).getDay();
+    const iT=ds===todayStr,iH=db.holidays.includes(ds),iS=dow===0;
+    const cnt=db.cases.filter(c=>c.nextDate===ds).length;
+    const cls=iT?'cal-today':iH?'cal-holiday':iS?'cal-sunday':'';
+    const cc=cnt>=5?'cc-hi':cnt>=2?'cc-md':'cc-lo';
+    h+=`<div class="cal-cell ${cls}" onclick="calClick('${ds}')"><div class="cd">${d}</div>${cnt>0?`<span class="cc ${cc}">${cnt}</span>`:''}</div>`;
+  }
+  const rm=42-sd-last.getDate();for(let i=1;i<=rm;i++)h+=`<div class="cal-cell cal-other"><div class="cd" style="color:#bbb">${i}</div></div>`;
+  h+=`</div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;margin-bottom:12px;align-items:center">
+    <span class="badge b-blue">Today</span><span class="badge b-red">Holiday</span><span class="badge b-gray">Sunday</span>
+    <span class="cc cc-hi" style="padding:2px 8px;border-radius:6px">5+ cases</span>
+    <span class="cc cc-md" style="padding:2px 8px;border-radius:6px">2–4 cases</span>
+  </div>
+  <button class="btn btn-sm" onclick="markHolPrompt()">+ Mark Holiday / Non-working day</button>`;
+  el.innerHTML=h;
+}
+function workDays(y,m){const l=new Date(y,m+1,0).getDate();let c=0;for(let d=1;d<=l;d++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;if(new Date(y,m,d).getDay()!==0&&!db.holidays.includes(ds))c++;}return c;}
+
+function calClick(ds){
+  const cases=db.cases.filter(c=>c.nextDate===ds),iH=db.holidays.includes(ds);
+  let body=`<p style="font-size:13px;color:#666;margin-bottom:12px">${fmt(ds)}${iH?' &nbsp;<span style="color:var(--red);background:var(--red-bg);padding:2px 8px;border-radius:6px;font-size:11px">Holiday</span>':''}</p>`;
+  if(cases.length===0)body+=`<div class="empty" style="padding:16px 0"><div class="ico">📭</div>No cases</div>`;
+  else cases.forEach(c=>{body+=`<div class="h-item"><div><div style="font-weight:500">${esc(c.clientName)}</div><div style="font-size:12px;color:#666">${esc(c.caseType)} | ${esc(c.court||'—')}</div></div><span class="badge b-blue" style="font-size:11px">${esc(c.stage)}</span></div>`;});
+  body+=`<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+    <button class="btn btn-sm ${iH?'b-green':'btn-danger'}" onclick="${iH?`remHol('${ds}')`:`addHol('${ds}')`}">${iH?'Remove Holiday':'Mark Holiday'}</button>
+    <button class="btn btn-sm b-blue" onclick="closeModal();viewDate='${ds}';showScreen('today')">View in Today's List</button>
+  </div>`;
+  showModal(fmt(ds),body);
+}
+function markHolPrompt(){
+  showModal('Mark Non-working Day',`
+    <label>Date</label><input type="date" id="hd" value="${todayStr}">
+    <label>Reason (optional)</label><input type="text" id="hr" placeholder="e.g. Court vacation, Holi">
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-primary" style="flex:1" onclick="addHolForm()">Mark Holiday</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+function addHolForm(){const ds=document.getElementById('hd').value;if(!ds){toast('Select a date');return;}addHol(ds);}
+function addHol(ds){if(!db.holidays.includes(ds))db.holidays.push(ds);saveDB();closeModal();render();toast('Marked: '+fmt(ds));}
+function remHol(ds){db.holidays=db.holidays.filter(d=>d!==ds);saveDB();closeModal();render();toast('Holiday removed');}
+
+/* ══════════════════ FEES ══════════════════ */
+function renderFees(el){
+  const active=db.cases.filter(c=>c.status!=='Closed');
+  let tA=0,tP=0;
+  active.forEach(c=>{const f=db.fees.find(x=>x.caseId===c.id);if(f)tA+=f.agreed||0;tP+=db.payments.filter(p=>p.caseId===c.id).reduce((a,b)=>a+(b.amount||0),0);});
+  const tD=tA-tP;
+  let h=`<div class="stats-grid">
+    <div class="stat"><div class="stat-lbl">Total agreed</div><div class="stat-val">₹${tA.toLocaleString('en-IN')}</div></div>
+    <div class="stat"><div class="stat-lbl">Total received</div><div class="stat-val" style="color:var(--green)">₹${tP.toLocaleString('en-IN')}</div></div>
+    <div class="stat"><div class="stat-lbl">Outstanding</div><div class="stat-val" style="color:${tD>0?'var(--red)':'var(--green)'}">₹${tD.toLocaleString('en-IN')}</div></div>
+  </div>
+  <div class="tab-row">
+    <button class="tab active" id="ft-all"  onclick="feeTab('all')">All</button>
+    <button class="tab"        id="ft-due"  onclick="feeTab('due')">Outstanding</button>
+    <button class="tab"        id="ft-paid" onclick="feeTab('paid')">Fully Paid</button>
+  </div>
+  <div class="tbl-wrap"><table class="data" id="fee-tbl"><thead><tr>
+    <th>Client</th><th>Case Type</th><th>Agreed (₹)</th><th>Paid (₹)</th><th>Balance (₹)</th><th>Status</th><th>Actions</th>
+  </tr></thead><tbody>`;
+  active.forEach(c=>{
+    const f=db.fees.find(x=>x.caseId===c.id),agreed=f?f.agreed:0;
+    const paid=db.payments.filter(p=>p.caseId===c.id).reduce((a,b)=>a+(b.amount||0),0),bal=agreed-paid;
+    const st=agreed===0?'Not set':bal<=0?'Paid':paid>0?'Partial':'Unpaid';
+    const sc=st==='Paid'?'b-green':st==='Partial'?'b-amber':st==='Unpaid'?'b-red':'b-gray';
+    h+=`<tr data-fee="${st}">
+      <td><b>${esc(c.clientName)}</b></td><td>${esc(c.caseType)}</td>
+      <td>${agreed>0?agreed.toLocaleString('en-IN'):'—'}</td>
+      <td style="color:var(--green)">${paid>0?paid.toLocaleString('en-IN'):'0'}</td>
+      <td style="color:${bal>0?'var(--red)':'var(--green)'}"><b>${bal.toLocaleString('en-IN')}</b></td>
+      <td><span class="badge ${sc}">${st}</span></td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" onclick="openPayForm('${c.id}')">+ Pay</button>
+        <button class="btn btn-sm" onclick="setFee('${c.id}',${agreed})">Set Fee</button>
+        <button class="btn btn-sm b-blue" onclick="viewPays('${c.id}','${esc(c.clientName)}')">History</button>
+      </div></td>
+    </tr>`;
+  });
+  h+=`</tbody></table></div>`;el.innerHTML=h;
+}
+function feeTab(t){document.querySelectorAll('[id^="ft-"]').forEach(b=>b.classList.remove('active'));document.getElementById('ft-'+t)?.classList.add('active');document.querySelectorAll('#fee-tbl tbody tr').forEach(r=>{const s=r.dataset.fee;r.style.display=t==='all'?'':t==='due'?(s==='Unpaid'||s==='Partial'?'':'none'):s==='Paid'?'':'none';});}
+function setFee(id,cur){const a=prompt('Total agreed fee (₹):',cur||'');if(a===null)return;const n=parseFloat(a);if(isNaN(n)||n<0){toast('Invalid amount');return;}let f=db.fees.find(x=>x.caseId===id);if(!f){f={id:uid(),caseId:id};db.fees.push(f);}f.agreed=n;saveDB();render();toast('Fee set to ₹'+n.toLocaleString('en-IN'));}
+function openPayForm(id){
+  const c=db.cases.find(x=>x.id===id);editingFeeCase=id;
+  showModal(`Add Payment — ${esc(c.clientName)}`,`
+    <label>Amount (₹) *</label><input type="number" id="fp_a" placeholder="e.g. 5000" min="1">
+    <div class="form-row">
+      <div><label>Date</label><input type="date" id="fp_d" value="${todayStr}"></div>
+      <div><label>Mode</label><select id="fp_m">${PAY_MODES.map(m=>`<option>${m}</option>`).join('')}</select></div>
+    </div>
+    <label>Note (optional)</label><input type="text" id="fp_n" placeholder="e.g. Receipt No. 42">
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-primary" style="flex:1" onclick="savePay()">Save</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>`);
+}
+function savePay(){const a=parseFloat(document.getElementById('fp_a').value);if(isNaN(a)||a<=0){toast('Enter valid amount');return;}db.payments.push({id:uid(),caseId:editingFeeCase,amount:a,date:document.getElementById('fp_d').value,mode:document.getElementById('fp_m').value,note:document.getElementById('fp_n').value.trim()});saveDB();closeModal();render();toast('₹'+a.toLocaleString('en-IN')+' recorded');}
+function viewPays(id,name){
+  const pays=db.payments.filter(p=>p.caseId===id).sort((a,b)=>a.date.localeCompare(b.date));
+  let body=pays.length===0?`<div class="empty" style="padding:16px 0"><div class="ico">💳</div>No payments yet</div>`:'';
+  const tot=pays.reduce((a,b)=>a+(b.amount||0),0);
+  pays.forEach(p=>{body+=`<div class="pay-row"><div><div style="font-weight:500">₹${p.amount.toLocaleString('en-IN')}</div><div style="color:#888">${p.mode}${p.note?' — '+esc(p.note):''}</div></div><div style="text-align:right;color:#666">${fmt(p.date)}</div></div>`;});
+  if(pays.length>0)body+=`<div style="text-align:right;margin-top:8px;font-size:13px;color:var(--green)">Total paid: <b>₹${tot.toLocaleString('en-IN')}</b></div>`;
+  body+=`<button class="btn btn-sm btn-primary" style="margin-top:12px;width:100%" onclick="closeModal();openPayForm('${id}')">+ Add Payment</button>`;
+  showModal(`Payments — ${name}`,body);
+}
+
+/* ══════════════════ SETTINGS ══════════════════ */
+function renderSettings(el){
+  const ls=db.lastSync?new Date(db.lastSync).toLocaleString('en-IN'):'Never';
+  el.innerHTML=`
+    <div class="sec-title">Google Sheets Sync</div>
+    <div class="card">
+      <p style="font-size:13px;color:#666;line-height:1.7;margin-bottom:4px">
+        The app pulls data from Sheets when it opens, and pushes every change automatically.
+        Paste your Apps Script Web App URL below.
+      </p>
+      <p style="font-size:12px;color:#aaa;margin-bottom:10px">Last synced: ${ls}</p>
+      <label>Apps Script Web App URL</label>
+      <input type="text" id="s_url" value="${esc(db.sheetUrl)}" placeholder="https://script.google.com/macros/s/…/exec">
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="saveSheetUrl()">Save &amp; Connect</button>
+        <button class="btn" onclick="syncFromSheets()">🔄 Pull from Sheets now</button>
+        <button class="btn btn-sm b-blue" onclick="showScript()">📋 Setup Script &amp; Guide</button>
+      </div>
+    </div>
+
+    <div class="sec-title" style="margin-top:18px">Custom Dropdowns</div>
+    <div class="card">
+      <div class="s-row"><span>Courts (${db.courts.length})</span><button class="btn btn-sm" onclick="manageDrop('courts','Court Name')">Manage</button></div>
+      <div class="s-row"><span>Police Stations (${db.policeStations.length})</span><button class="btn btn-sm" onclick="manageDrop('policeStations','Police Station')">Manage</button></div>
+      <div class="s-row"><span>Custom Case Types (${db.customCaseTypes.length})</span><button class="btn btn-sm" onclick="manageDrop('customCaseTypes','Case Type')">Manage</button></div>
+      <div class="s-row"><span>Custom Hearing Stages (${db.customStages.length})</span><button class="btn btn-sm" onclick="manageDrop('customStages','Hearing Stage')">Manage</button></div>
+    </div>
+
+    <div class="sec-title" style="margin-top:18px">Backup &amp; Restore</div>
+    <div class="card">
+      <div class="s-row"><div><div style="font-weight:500">Export Backup</div><div style="font-size:12px;color:#888">Download all data as JSON</div></div><button class="btn btn-sm b-green" onclick="exportData()">Export</button></div>
+      <div class="s-row"><div><div style="font-weight:500">Import Backup</div><div style="font-size:12px;color:#888">Restore from JSON file</div></div><button class="btn btn-sm b-blue" onclick="document.getElementById('impF').click()">Import</button></div>
+      <div class="s-row"><span style="color:#666">Cases in diary</span><span class="badge b-gray">${db.cases.length} cases</span></div>
+    </div>
+    <input type="file" id="impF" accept=".json" style="display:none" onchange="importData(this)">
+
+    <div class="sec-title" style="margin-top:18px">GitHub Pages Deployment Guide</div>
+    <div class="card" style="font-size:13px;color:#555;line-height:1.9">
+      <b>Step 1.</b> Go to <b>github.com</b> → Sign up free (use Gmail)<br>
+      <b>Step 2.</b> Click <b>+ New repository</b> → Name it <code>case-diary</code> → Public → Create<br>
+      <b>Step 3.</b> Click <b>Add file → Upload files</b> → drag your <code>index.html</code> → Commit changes<br>
+      <b>Step 4.</b> Go to <b>Settings → Pages</b> → Source = <b>Deploy from branch: main</b> → Save<br>
+      <b>Step 5.</b> Wait 60 seconds → Your app is live at <b>https://[username].github.io/case-diary</b><br>
+      <b>Step 6.</b> Open on phone + laptop → same URL, data syncs via Google Sheets
+    </div>
+    <p style="font-size:11px;color:#aaa;margin-top:16px;text-align:center">Advocate's Case Diary v2.0 &nbsp;|&nbsp; Two-way Google Sheets sync</p>
+  `;
+}
+
+function saveSheetUrl(){
+  db.sheetUrl=document.getElementById('s_url').value.trim();
+  saveLocal();
+  if(db.sheetUrl){toast('URL saved — pulling data…');syncFromSheets();}
+  else{setSS('','Not connected');toast('Sheets URL cleared');}
+}
+
+/* ══════════════════ APPS SCRIPT ══════════════════ */
+function showScript(){
+  const sc=
+`// ─────────────────────────────────────────────────
+//  Advocate Case Diary — Google Apps Script v2
+//  Handles both GET (read) and POST (write)
+// ─────────────────────────────────────────────────
+
+function doGet(e) {
+  return handleRequest(e, null);
+}
+
+function doPost(e) {
+  return handleRequest(e, e.postData.contents);
+}
+
+function handleRequest(e, postBody) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : 'write';
+  var result;
+
+  if (action === 'read') {
+    // ── READ: return all sheets as JSON ──
+    var sheetNames = ['cases','fees','payments','holidays',
+                      'courts','policeStations',
+                      'customCaseTypes','customStages'];
+    var out = {};
+    sheetNames.forEach(function(name) {
+      var sh = ss.getSheetByName(name);
+      if (!sh || sh.getLastRow() < 2) { out[name] = []; return; }
+      var data = sh.getDataRange().getValues();
+      var headers = data[0];
+      out[name] = data.slice(1).map(function(row) {
+        var obj = {};
+        headers.forEach(function(h, i) { obj[String(h)] = row[i]; });
+        return obj;
+      });
+    });
+    result = JSON.stringify(out);
+
+  } else {
+    // ── WRITE: save POST body to sheets ──
+    var body = JSON.parse(postBody);
+    var tables = {
+      cases:           body.cases           || [],
+      fees:            body.fees            || [],
+      payments:        body.payments        || [],
+      holidays:        body.holidays        || [],
+      courts:          body.courts          || [],
+      policeStations:  body.policeStations  || [],
+      customCaseTypes: body.customCaseTypes || [],
+      customStages:    body.customStages    || []
+    };
+
+    Object.keys(tables).forEach(function(name) {
+      var arr = tables[name];
+      var sh = ss.getSheetByName(name);
+      if (!sh) sh = ss.insertSheet(name);
+      sh.clearContents();
+      if (!arr || arr.length === 0) return;
+
+      // Normalise: plain strings (holidays) → {value: x}
+      var rows = arr.map(function(item) {
+        return (typeof item === 'string') ? {value: item} : item;
+      });
+
+      var keys = Object.keys(rows[0]);
+      sh.getRange(1, 1, 1, keys.length).setValues([keys]);
+      var values = rows.map(function(r) {
+        return keys.map(function(k) {
+          var v = r[k];
+          return (v === null || v === undefined) ? '' : String(v);
+        });
+      });
+      sh.getRange(2, 1, values.length, keys.length).setValues(values);
+    });
+
+    result = JSON.stringify({status: 'ok'});
+  }
+
+  return ContentService
+    .createTextOutput(result)
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+  showModal('Apps Script — Setup Guide',`
+    <div style="font-size:13px;color:#555;line-height:1.9;margin-bottom:14px">
+      <b>Step 1.</b> Create a <b>brand new blank Google Sheet</b><br>
+      <b>Step 2.</b> Click <b>Extensions → Apps Script</b> (new tab opens)<br>
+      <b>Step 3.</b> <b>Select all existing code (Ctrl+A) and delete it</b><br>
+      <b>Step 4.</b> Paste the script below<br>
+      <b>Step 5.</b> Click 💾 Save → then <b>Deploy → New Deployment</b><br>
+      <b>Step 6.</b> Click ⚙️ gear → Type = <b>Web App</b><br>
+      <b>Step 7.</b> Execute as = <b>Me</b> &nbsp;|&nbsp; Who has access = <b>Anyone</b><br>
+      <b>Step 8.</b> Click <b>Deploy</b> → <b>Authorize</b> (allow access) → Copy the <b>Web App URL</b><br>
+      <b>Step 9.</b> Paste URL in Settings → <b>Save &amp; Connect</b><br>
+      <br>
+      ⚠️ <b>Important:</b> Never run the script manually in the editor — it will show an error because it needs a web request. That is normal.
+    </div>
+    <div id="sc_box" style="background:#f4f6f9;border-radius:8px;padding:12px;font-size:11px;font-family:monospace;overflow-x:auto;white-space:pre;line-height:1.6;max-height:240px;overflow-y:auto">${sc.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+    <button class="btn btn-primary" style="margin-top:10px;width:100%" onclick="cpScript()">📋 Copy Script to Clipboard</button>
+  `);
+}
+function cpScript(){const b=document.getElementById('sc_box');if(!b)return;navigator.clipboard.writeText(b.innerText).then(()=>toast('✅ Script copied!')).catch(()=>toast('Select the code above and copy manually'));}
+
+/* ══════════════════ DROPDOWN MANAGER ══════════════════ */
+function manageDrop(key,label){
+  const list=db[key]||[];
+  let body=`<div id="ddl">`;
+  if(list.length===0)body+=`<p style="color:#888;font-size:13px;padding:8px 0">No ${label.toLowerCase()}s added yet.</p>`;
+  list.forEach((v,i)=>{body+=`<div class="h-item"><span>${esc(v)}</span><button class="btn btn-sm btn-danger" onclick="remDD('${key}',${i})">Remove</button></div>`;});
+  body+=`</div><div style="display:flex;gap:8px;margin-top:12px">
+    <input type="text" id="new_dd" placeholder="Add new ${label.toLowerCase()}…" style="flex:1">
+    <button class="btn btn-sm btn-primary" onclick="addDD('${key}','${label}')">Add</button>
+  </div>`;
+  showModal(`Manage ${label}s`,body);
+}
+function addDD(key,label){
+  const val=document.getElementById('new_dd').value.trim();if(!val)return;
+  if(!db[key])db[key]=[];if(db[key].includes(val)){toast('Already exists');return;}
+  db[key].push(val);saveDB();toast('Added: '+val);closeModal();setTimeout(()=>manageDrop(key,label),80);
+}
+function remDD(key,idx){db[key].splice(idx,1);saveDB();closeModal();}
+
+/* ══════════════════ BACKUP / RESTORE ══════════════════ */
+function exportData(){const b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='case_diary_'+todayStr+'.json';a.click();toast('Backup exported');}
+function importData(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();r.onload=e=>{
+    try{
+      const imp=JSON.parse(e.target.result);if(!imp.cases){toast('Invalid file');return;}
+      if(!confirm('Replace all data with this backup?'))return;
+      db=imp;['cases','fees','payments','holidays','customCaseTypes','customStages','courts','policeStations'].forEach(k=>{if(!Array.isArray(db[k]))db[k]=[];});
+      saveLocal();render();toast('Data imported');
+    }catch{toast('Failed to read file');}
+  };r.readAsText(f);
+}
+
+/* ══════════════════ PDF ══════════════════ */
+function printPDF(){
+  const cases=db.cases.filter(c=>c.nextDate===viewDate&&c.status!=='Closed');
+  if(cases.length===0){toast('No cases for this date');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text('CAUSE LIST',105,22,{align:'center'});
+  doc.setFont('helvetica','normal');doc.setFontSize(10);
+  doc.text('Date: '+fmt(viewDate),15,30);doc.text('Total: '+cases.length,195,30,{align:'right'});
+  doc.setDrawColor(200);doc.line(15,34,195,34);
+  const cols=[{h:'#',w:8},{h:'Client',w:28},{h:'Case No.',w:18},{h:'FIR',w:14},{h:'P. Station',w:24},{h:'Case Type',w:26},{h:'Court',w:28},{h:'Stage',w:20},{h:'Prev Date',w:18}];
+  let x=15,y=42;
+  doc.setFillColor(230,241,251);doc.rect(15,y-5,180,8,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(8);
+  cols.forEach(c=>{doc.text(c.h,x+1,y);x+=c.w;});
+  doc.setFont('helvetica','normal');y+=8;
+  cases.forEach((c,i)=>{
+    if(y>272){doc.addPage();y=20;}
+    if(i%2===0){doc.setFillColor(249,250,251);doc.rect(15,y-4,180,7,'F');}
+    x=15;
+    const row=[String(i+1),c.clientName,c.caseNo?(c.caseNo+(c.caseYear?'/'+c.caseYear:'')):'—',c.firNo||'—',c.policeStation||'—',c.caseType,c.court||'—',c.stage,c.prevDate?fmt(c.prevDate):'—'];
+    cols.forEach((col,ci)=>{const v=String(row[ci]||'');const mx=Math.floor(col.w/1.85);doc.text(v.length>mx?v.substring(0,mx)+'…':v,x+1,y);x+=col.w;});
+    y+=7;
+  });
+  doc.setDrawColor(200);doc.line(15,y+2,195,y+2);doc.setFontSize(8);doc.setTextColor(160);
+  doc.text("Advocate's Case Diary | "+fmt(todayStr),105,y+8,{align:'center'});
+  doc.save('CauseList_'+viewDate+'.pdf');toast('PDF downloaded');
+}
+
+/* ══════════════════ MODAL ══════════════════ */
+function showModal(title,body){
+  closeModal();
+  const ov=document.createElement('div');ov.className='modal-bg';ov.id='mod-ov';
+  ov.innerHTML=`<div class="modal"><div class="modal-hd"><h3>${title}</h3><button class="modal-close" onclick="closeModal()">✕</button></div>${body}</div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)closeModal();});
+  document.body.appendChild(ov);
+}
+function closeModal(){document.getElementById('mod-ov')?.remove();}
+
+/* ══════════════════ INIT ══════════════════ */
+loadLocal();
+render();
+if(db.sheetUrl){setSS('busy','Connecting…');syncFromSheets();}
+else setSS('','Not connected');
+</script>
+</body>
+</html>
